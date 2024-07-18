@@ -1,3 +1,5 @@
+<p align="center">🇨🇳 中文简体  |  <a title="English" href="README_EN.md">🇬🇧 English</a></p>
+
 # VideoHybridizer——视频 “杂交” 器
 
 VideoHybridizer 是一个功能强大的工具，可以将两个视频流的帧交替排列，生成一个新的 120 fps 视频。
