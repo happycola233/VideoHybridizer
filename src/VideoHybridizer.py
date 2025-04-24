@@ -4,7 +4,7 @@ import time
 import subprocess
 import re
 import json
-from tkinter import Tk, Text, Scrollbar, END, DISABLED, NORMAL, Frame, StringVar
+from tkinter import Checkbutton, IntVar, Tk, Text, Scrollbar, END, DISABLED, NORMAL, Frame, StringVar
 from tkinter import filedialog, messagebox
 from tkinter.ttk import Button, Label, Entry, Progressbar, Style, Combobox
 import ctypes, win32api, win32con, win32gui, win32print
@@ -175,13 +175,13 @@ def convert_to_60fps(video_path, output_path, log_callback, progress_callback, h
     cmd.extend(["-i", video_path, "-vf", "fps=60"])
 
     if hwaccel_type == "NVIDIA NVENC":
-        cmd.extend(["-c:v", "h264_nvenc" if codec == "H.264" else "hevc_nvenc", "-preset", "p7", "-rc", "vbr"])
+        cmd.extend(["-c:v", "h264_nvenc" if codec == "H.264" else "hevc_nvenc", "-preset", "p7", "-rc", "vbr", "-cq", "18", "-rc-lookahead", "60"])
     elif hwaccel_type == "AMD AMF":
-        cmd.extend(["-c:v", "h264_amf" if codec == "H.264" else "hevc_amf", "-quality", "quality"])
+        cmd.extend(["-c:v", "h264_amf" if codec == "H.264" else "hevc_amf", "-quality", "quality", "-profile:v", "high", "qp_i", "18", "-qp_p", "20", "qp_b", "22"])
     elif hwaccel_type == "Intel QSV":
-        cmd.extend(["-c:v", "h264_qsv" if codec == "H.264" else "hevc_qsv", "-preset", "veryfast"])
-    else:  # 禁用（软件编码）
-        cmd.extend(["-c:v", "libx264" if codec == "H.264" else "libx265", "-preset", "slow", "-crf", "23"])
+        cmd.extend(["-c:v", "h264_qsv" if codec == "H.264" else "hevc_qsv", "-preset", "veryslow", "global_quality", "18"])
+    else:  # 软件编码
+        cmd.extend(["-c:v", "libx264" if codec == "H.264" else "libx265", "-preset", "veryslow", "-crf", "18"])
 
     cmd.extend(["-c:a", "copy", "-pix_fmt", "yuv420p", output_path])
 
@@ -323,14 +323,40 @@ def merge_videos(video_a_path, video_b_path, output_path, progress_callback, log
         "-r", "120"
     ])
 
+    # 应用码率（如果启用）
+    if bitrate_enabled_var.get() == 1:
+        try:
+            bitrate_mbps = float(bitrate_var.get())
+            bitrate_kbps = int(bitrate_mbps * 1000)  # 将 Mbps 转换为 kbps
+            ffmpeg_cmd.extend(["-b:v", f"{bitrate_kbps}k"])
+        except ValueError:
+            log_callback("错误：请输入有效的码率（数字，单位 Mbps）")
+            return False
+
+
+    # 设置编码器和参数
     if hwaccel_type == "NVIDIA NVENC":
-        ffmpeg_cmd.extend(["-c:v", "h264_nvenc" if codec == "H.264" else "hevc_nvenc", "-preset", "p7", "-rc", "vbr", "-b:v", "5M"])
+        ffmpeg_cmd.extend(["-c:v", "h264_nvenc" if codec == "H.264" else "hevc_nvenc", "-preset", "p7"])
+        if bitrate_enabled_var.get() == 1:
+            ffmpeg_cmd.extend(["-rc", "vbr", "-b:v", f"{bitrate_kbps}k"])
+        else:
+            ffmpeg_cmd.extend(["-rc", "vbr", "-cq", "18", "-rc-lookahead", "32"])
     elif hwaccel_type == "AMD AMF":
-        ffmpeg_cmd.extend(["-c:v", "h264_amf" if codec == "H.264" else "hevc_amf", "-quality", "quality", "-b:v", "5M"])
+        ffmpeg_cmd.extend(["-c:v", "h264_amf" if codec == "H.264" else "hevc_amf", "-quality", "quality"])
+        if bitrate_enabled_var.get() == 1:
+            ffmpeg_cmd.extend(["-b:v", f"{bitrate_kbps}k"])
     elif hwaccel_type == "Intel QSV":
-        ffmpeg_cmd.extend(["-c:v", "h264_qsv" if codec == "H.264" else "hevc_qsv", "-preset", "veryfast", "-b:v", "5M"])
-    else:  # 禁用（软件编码）
-        ffmpeg_cmd.extend(["-c:v", "libx264" if codec == "H.264" else "libx265", "-preset", "slow", "-crf", "23"])
+        ffmpeg_cmd.extend(["-c:v", "h264_qsv" if codec == "H.264" else "hevc_qsv", "-preset", "veryslow"])
+        if bitrate_enabled_var.get() == 1:
+            ffmpeg_cmd.extend(["-b:v", f"{bitrate_kbps}k"])
+        else:
+            ffmpeg_cmd.extend(["-global_quality", "18"])
+    else:  # 软编码
+        ffmpeg_cmd.extend(["-c:v", "libx264" if codec == "H.264" else "libx265", "-preset", "slow"])
+        if bitrate_enabled_var.get() == 1:
+            ffmpeg_cmd.extend(["-b:v", f"{bitrate_kbps}k"])
+        else:
+            ffmpeg_cmd.extend(["-crf", "23"])
 
     ffmpeg_cmd.extend(["-pix_fmt", "yuv420p", "-c:a", "aac", output_path])
 
@@ -514,11 +540,20 @@ main_frame.pack(padx=20, pady=20, expand=True, fill='both')
 inner_frame = Frame(main_frame)
 inner_frame.pack(expand=True)
 
+def toggle_bitrate_entry():
+    if bitrate_enabled_var.get() == 1:
+        bitrate_entry.config(state=NORMAL)
+    else:
+        bitrate_entry.config(state=DISABLED)
+
 video_a_var = StringVar()
 video_b_var = StringVar()
 output_file_var = StringVar()
 hwaccel_var = StringVar(value="NVIDIA NVENC")
 codec_var = StringVar(value="H.264")
+drate_enabled_var = IntVar(value=0)
+bitrate_enabled_var = IntVar(value=0)
+bitrate_var = StringVar(value="5")
 
 Label(inner_frame, text="视频 A").grid(row=0, column=0, padx=10, pady=5)
 Entry(inner_frame, textvariable=video_a_var, width=50).grid(row=0, column=1, padx=10, pady=5)
@@ -535,7 +570,15 @@ Button(inner_frame, text="选择", command=lambda: select_output_file(output_fil
 Label(inner_frame, text="硬件加速").grid(row=3, column=0, padx=10, pady=5)
 Combobox(inner_frame, textvariable=hwaccel_var, values=["NVIDIA NVENC", "AMD AMF", "Intel QSV", "禁用"], state="readonly", width=12).grid(row=3, column=1, padx=(10, 5), pady=5, sticky="w")
 Label(inner_frame, text="编码格式").grid(row=3, column=1, padx=(140, 5), pady=5, sticky="w")
-Combobox(inner_frame, textvariable=codec_var, values=["H.264", "H.265"], state="readonly", width=12).grid(row=3, column=1, padx=(210, 10), pady=5, sticky="w")
+Combobox(inner_frame, textvariable=codec_var, values=["H.264", "H.265"], state="readonly", width=12).grid(row=3, column=1, padx=(210, 5), pady=5, sticky="w")
+
+Checkbutton(inner_frame, text="码率", variable=bitrate_enabled_var, command=toggle_bitrate_entry).grid(row=3, column=2, padx=(0, 5), pady=5, sticky="w")
+
+bitrate_entry = Entry(inner_frame, textvariable=bitrate_var, width=5)
+bitrate_entry.grid(row=3, column=2, padx=(50, 5), pady=5, sticky="w")
+bitrate_entry.config(state=DISABLED if bitrate_enabled_var.get() == 0 else NORMAL)
+
+Label(inner_frame, text="Mbps").grid(row=3, column=2, padx=(75, 10), pady=5, sticky="w")
 
 prompt = '''\
 ⭐ 帧排列图解：
