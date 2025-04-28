@@ -171,17 +171,41 @@ def convert_to_60fps(video_path, output_path, log_callback, progress_callback, h
     elif hwaccel_type == "AMD AMF":
         cmd.extend(["-hwaccel", "d3d11va"])
     elif hwaccel_type == "Intel QSV":
-        cmd.extend(["-hwaccel", "qsv"])
+        cmd.extend([])
     cmd.extend(["-i", video_path, "-vf", "fps=60"])
 
     if hwaccel_type == "NVIDIA NVENC":
-        cmd.extend(["-c:v", "h264_nvenc" if codec == "H.264" else "hevc_nvenc", "-preset", "p7", "-rc", "vbr", "-cq", "18", "-rc-lookahead", "60"])
+        cmd.extend([
+            "-c:v", "h264_nvenc" if codec == "H.264" else "hevc_nvenc",
+            "-preset", "p7", 
+            "-rc", "vbr", 
+            "-cq", "18", 
+            "-rc-lookahead", "60"
+        ])
     elif hwaccel_type == "AMD AMF":
-        cmd.extend(["-c:v", "h264_amf" if codec == "H.264" else "hevc_amf", "-quality", "quality", "-profile:v", "high", "qp_i", "18", "-qp_p", "20", "qp_b", "22"])
+        cmd.extend([
+            "-c:v", "h264_amf" if codec == "H.264" else "hevc_amf",
+            "-usage", "transcoding",
+            "-quality", "quality",
+            "-profile:v", "high",
+            "-tier", "high",
+            "-qp_i", "16",
+            "-qp_p", "16",
+            "-qp_b", "18"
+        ])
     elif hwaccel_type == "Intel QSV":
-        cmd.extend(["-c:v", "h264_qsv" if codec == "H.264" else "hevc_qsv", "-preset", "veryslow", "global_quality", "18"])
+        cmd.extend([
+            "-c:v", "h264_qsv" if codec == "H.264" else "hevc_qsv",
+            "-preset", "veryslow",          # QSV 最高画质 preset
+            "-rc", "vbr",                   # 显式指定 VBR 模式
+            "-global_quality", "18",        # ICQ 模式，视觉无损
+            "-look_ahead", "1",             # 开启前瞻编码
+            "-la_depth", "40",              # 前瞻深度
+            "-extbrc", "1"                  # 扩展码率控制
+        ])
     else:  # 软件编码
-        cmd.extend(["-c:v", "libx264" if codec == "H.264" else "libx265", "-preset", "veryslow", "-crf", "18"])
+        cmd.extend(["-c:v", "libx264" if codec == "H.264" else "libx265", 
+                    "-preset", "slow", "-crf", "18"])
 
     cmd.extend(["-c:a", "copy", "-pix_fmt", "yuv420p", output_path])
 
@@ -311,7 +335,7 @@ def merge_videos(video_a_path, video_b_path, output_path, progress_callback, log
     elif hwaccel_type == "AMD AMF":
         ffmpeg_cmd.extend(["-hwaccel", "d3d11va"])
     elif hwaccel_type == "Intel QSV":
-        ffmpeg_cmd.extend(["-hwaccel", "qsv"])
+        ffmpeg_cmd.extend([])
     ffmpeg_cmd.extend([
         "-i", temp_a_path,
         "-i", temp_b_path,
@@ -336,27 +360,69 @@ def merge_videos(video_a_path, video_b_path, output_path, progress_callback, log
 
     # 设置编码器和参数
     if hwaccel_type == "NVIDIA NVENC":
-        ffmpeg_cmd.extend(["-c:v", "h264_nvenc" if codec == "H.264" else "hevc_nvenc", "-preset", "p7"])
+        ffmpeg_cmd.extend([
+            "-c:v", "h264_nvenc" if codec == "H.264" else "hevc_nvenc", 
+            "-preset", "p7"
+            ])
         if bitrate_enabled_var.get() == 1:
-            ffmpeg_cmd.extend(["-rc", "vbr", "-b:v", f"{bitrate_kbps}k"])
+            ffmpeg_cmd.extend([
+                "-rc", "vbr", 
+                "-b:v", f"{bitrate_kbps}k"
+                ])
         else:
-            ffmpeg_cmd.extend(["-rc", "vbr", "-cq", "18", "-rc-lookahead", "32"])
+            ffmpeg_cmd.extend([
+                "-rc", "vbr", 
+                "-cq", "18", 
+                "-rc-lookahead", "32"
+                ])
+
     elif hwaccel_type == "AMD AMF":
-        ffmpeg_cmd.extend(["-c:v", "h264_amf" if codec == "H.264" else "hevc_amf", "-quality", "quality"])
+        ffmpeg_cmd.extend([
+            "-c:v", "h264_amf" if codec == "H.264" else "hevc_amf", 
+            "-usage", "transcoding", 
+            "-quality", "quality", 
+            "-profile:v", "high", 
+            "-tier", "high"
+            ])
         if bitrate_enabled_var.get() == 1:
-            ffmpeg_cmd.extend(["-b:v", f"{bitrate_kbps}k"])
+            ffmpeg_cmd.extend([
+                "-b:v", f"{bitrate_kbps}k"
+                ])
+        else:
+            ffmpeg_cmd.extend([
+                "-rc", "cqp",
+                "-qp_i", "16",
+                "-qp_p", "16",
+                "-qp_b", "18",
+                "-refs", "4"
+            ])
+
     elif hwaccel_type == "Intel QSV":
-        ffmpeg_cmd.extend(["-c:v", "h264_qsv" if codec == "H.264" else "hevc_qsv", "-preset", "veryslow"])
+        ffmpeg_cmd.extend([
+            "-c:v", "h264_qsv" if codec == "H.264" else "hevc_qsv",
+            "-preset", "fast",
+            "-profile:v", "high"
+        ])
         if bitrate_enabled_var.get() == 1:
-            ffmpeg_cmd.extend(["-b:v", f"{bitrate_kbps}k"])
+            ffmpeg_cmd.extend([
+                "-rc", "vbr", 
+                "-b:v", f"{bitrate_kbps}k"
+            ])
         else:
-            ffmpeg_cmd.extend(["-global_quality", "18"])
+            ffmpeg_cmd.extend([
+                "-rc", "vbr", 
+                "-global_quality", "18", 
+            ])
+            
+
     else:  # 软编码
-        ffmpeg_cmd.extend(["-c:v", "libx264" if codec == "H.264" else "libx265", "-preset", "slow"])
+        ffmpeg_cmd.extend([
+            "-c:v", "libx264" if codec == "H.264" else 
+            "libx265", "-preset", "slow"])
         if bitrate_enabled_var.get() == 1:
             ffmpeg_cmd.extend(["-b:v", f"{bitrate_kbps}k"])
         else:
-            ffmpeg_cmd.extend(["-crf", "23"])
+            ffmpeg_cmd.extend(["-crf", "18"])
 
     ffmpeg_cmd.extend(["-pix_fmt", "yuv420p", "-c:a", "aac", output_path])
 
