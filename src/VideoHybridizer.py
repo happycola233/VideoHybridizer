@@ -185,23 +185,18 @@ def convert_to_60fps(video_path, output_path, log_callback, progress_callback, h
     elif hwaccel_type == "AMD AMF":
         cmd.extend([
             "-c:v", "h264_amf" if codec == "H.264" else "hevc_amf",
-            "-usage", "transcoding",
-            "-quality", "quality",
-            "-profile:v", "high",
-            "-tier", "high",
+            "-usage", "transcoding", 
+            "-quality", "quality", 
+            "-rc", "cqp",
             "-qp_i", "16",
             "-qp_p", "16",
-            "-qp_b", "18"
+            "-qp_b", "18",
         ])
     elif hwaccel_type == "Intel QSV":
         cmd.extend([
             "-c:v", "h264_qsv" if codec == "H.264" else "hevc_qsv",
-            "-preset", "veryslow",          # QSV 最高画质 preset
-            "-rc", "vbr",                   # 显式指定 VBR 模式
-            "-global_quality", "18",        # ICQ 模式，视觉无损
-            "-look_ahead", "1",             # 开启前瞻编码
-            "-la_depth", "40",              # 前瞻深度
-            "-extbrc", "1"                  # 扩展码率控制
+            "-rc", "vbr", 
+            "-global_quality", "18", 
         ])
     else:  # 软件编码
         cmd.extend(["-c:v", "libx264" if codec == "H.264" else "libx265", 
@@ -373,7 +368,7 @@ def merge_videos(video_a_path, video_b_path, output_path, progress_callback, log
             ffmpeg_cmd.extend([
                 "-rc", "vbr", 
                 "-cq", "18", 
-                "-rc-lookahead", "32"
+                "-rc-lookahead", "60"
                 ])
 
     elif hwaccel_type == "AMD AMF":
@@ -381,8 +376,6 @@ def merge_videos(video_a_path, video_b_path, output_path, progress_callback, log
             "-c:v", "h264_amf" if codec == "H.264" else "hevc_amf", 
             "-usage", "transcoding", 
             "-quality", "quality", 
-            "-profile:v", "high", 
-            "-tier", "high"
             ])
         if bitrate_enabled_var.get() == 1:
             ffmpeg_cmd.extend([
@@ -401,7 +394,6 @@ def merge_videos(video_a_path, video_b_path, output_path, progress_callback, log
         ffmpeg_cmd.extend([
             "-c:v", "h264_qsv" if codec == "H.264" else "hevc_qsv",
             "-preset", "fast",
-            "-profile:v", "high"
         ])
         if bitrate_enabled_var.get() == 1:
             ffmpeg_cmd.extend([
