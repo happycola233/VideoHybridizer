@@ -172,7 +172,12 @@ def convert_to_60fps(video_path, output_path, log_callback, progress_callback, h
         cmd.extend(["-hwaccel", "d3d11va"])
     elif hwaccel_type == "Intel QSV":
         cmd.extend([])
-    cmd.extend(["-i", video_path, "-vf", "fps=60"])
+    cmd.extend([
+        "-i", video_path,
+        "-vf", "fps=60,setsar=1,setpts=PTS-STARTPTS", 
+        "-r", "60", 
+        "-start_at_zero", 
+        ])
 
     if hwaccel_type == "NVIDIA NVENC":
         cmd.extend([
@@ -336,10 +341,12 @@ def merge_videos(video_a_path, video_b_path, output_path, progress_callback, log
         "-i", temp_b_path,
         "-i", video_a_path,
         "-filter_complex",
-        "[0:v]fps=60,setsar=1[v0];[1:v]fps=60,setsar=1[v1];[v0][v1]interleave[v]",
+        "[0:v]fps=60,setsar=1,setpts=PTS-STARTPTS[v0];[1:v]fps=60,setsar=1,setpts=PTS-STARTPTS[v1];[v0][v1]interleave[v]",
         "-map", "[v]",
         "-map", "2:a?",
-        "-r", "120"
+        "-r", "120",
+        "-start_at_zero",
+        "-async", "1"
     ])
 
     # 应用码率（如果启用）
