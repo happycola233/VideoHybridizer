@@ -259,7 +259,7 @@ def convert_to_60fps(video_path, output_path, log_callback, progress_callback, h
                                 last_log_time = time.time()
             except queue.Empty:
                 pass
-            if time.time() - start_time > 300:
+            if time.time() - start_time > 1200:
                 process.terminate()
                 raise TimeoutError("FFmpeg 进程超时")
             time.sleep(0.01)
@@ -475,7 +475,7 @@ def merge_videos(video_a_path, video_b_path, output_path, progress_callback, log
                             last_log_time = time.time()
         except queue.Empty:
             pass
-        if time.time() - start_time > 300:
+        if time.time() - start_time > 1200:
             process.terminate()
             raise TimeoutError("处理超时")
         time.sleep(0.01)
