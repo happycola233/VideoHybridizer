@@ -208,6 +208,8 @@ def convert_to_60fps(video_path, output_path, log_callback, progress_callback, h
                     "-preset", "slow", "-crf", "18"])
 
     cmd.extend(["-c:a", "copy", "-pix_fmt", "yuv420p", output_path])
+    
+    timeout_duration = 300 # 5分钟超时
 
     try:
         process = subprocess.Popen(
@@ -247,6 +249,8 @@ def convert_to_60fps(video_path, output_path, log_callback, progress_callback, h
                 while not stderr_queue.empty():
                     line = stderr_queue.get_nowait()
                     if any(keyword in line for keyword in ffmpeg_keywords):
+                        # 如果有FFmpeg进度输出，重置超时时间
+                        start_time = time.time() 
                         match = re.search(r"frame=\s*(\d+)", line)
                         if match:
                             current_frame = int(match.group(1))
@@ -259,8 +263,15 @@ def convert_to_60fps(video_path, output_path, log_callback, progress_callback, h
                                 last_log_time = time.time()
             except queue.Empty:
                 pass
-            if time.time() - start_time > 1200:
+            if time.time() - start_time > timeout_duration:
+                log_callback(f"FFmpeg 进程超时（{timeout_duration/60} 分钟无输出），正在终止...")
                 process.terminate()
+                # 等待进程结束，如果仍未结束，则强制杀死
+                try:
+                    process.wait(timeout=5) 
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    log_callback("FFmpeg 进程被强制终止。")
                 raise TimeoutError("FFmpeg 进程超时")
             time.sleep(0.01)
 
@@ -425,6 +436,8 @@ def merge_videos(video_a_path, video_b_path, output_path, progress_callback, log
 
     ffmpeg_cmd.extend(["-pix_fmt", "yuv420p", "-c:a", "aac", output_path])
 
+    timeout_duration = 300 # 5分钟超时
+
     process = subprocess.Popen(
         ffmpeg_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         universal_newlines=True, encoding='utf-8', errors='replace', bufsize=1,
@@ -463,6 +476,8 @@ def merge_videos(video_a_path, video_b_path, output_path, progress_callback, log
             while not stderr_queue.empty():
                 line = stderr_queue.get_nowait()
                 if any(keyword in line for keyword in ffmpeg_keywords):
+                    # 如果有FFmpeg进度输出，重置超时时间
+                    start_time = time.time()
                     match = re.search(r"frame=\s*(\d+)", line)
                     if match:
                         current_frame = int(match.group(1))
@@ -475,8 +490,15 @@ def merge_videos(video_a_path, video_b_path, output_path, progress_callback, log
                             last_log_time = time.time()
         except queue.Empty:
             pass
-        if time.time() - start_time > 1200:
+        if time.time() - start_time > timeout_duration:
+            log_callback(f"FFmpeg 进程超时（{timeout_duration/60} 分钟无输出），正在终止...")
             process.terminate()
+            # 等待进程结束，如果仍未结束，则强制杀死
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                log_callback("FFmpeg 进程被强制终止。")
             raise TimeoutError("处理超时")
         time.sleep(0.01)
 
