@@ -355,6 +355,7 @@ def merge_videos(video_a_path, video_b_path, output_path, progress_callback, log
         "[0:v]fps=60,setsar=1,setpts=PTS-STARTPTS[v0];[1:v]fps=60,setsar=1,setpts=PTS-STARTPTS[v1];[v0][v1]interleave[v]",
         "-map", "[v]",
         "-map", "2:a?",
+        "-t", str(target_duration),
         "-r", "120",
         "-start_at_zero",
         "-async", "1"
