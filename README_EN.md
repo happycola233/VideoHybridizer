@@ -23,9 +23,9 @@ Currently, this program supports **Windows 7 and above, 64-bit** operating syste
 > Consider the following when using this program:
 >
 > 1. Ensure that both videos to be processed have the same resolution.
-> 2. If the lengths of the videos differ, excess frames from the longer video will be discarded after synthesis.
+> 2. If the input lengths differ, the output is trimmed to the **shorter video stream**, and the preserved audio is trimmed to match.
 > 3. After clicking the "Start Synthesis" button, the program converts both videos to 60 fps first, then uses [frame interleaving strategy](#operational-principle) to synthesize a video at 120 fps.
-> 4. Currently, this program processes only video frames, so the synthesized video will be without sound. If needed, you can manually add audio using other software.
+> 4. The final output keeps only the audio track from video A. If video A has no audio, the output will be silent.
 
 ## Operational Principle
 
@@ -54,7 +54,7 @@ No, you cannot close it! Closing the console window will terminate the program. 
 
 ### The program seems stuck after clicking "Start Synthesis." What should I do?
 
-First, ensure that the input video formats are supported by the program and that the videos play correctly. Avoid using very large videos or videos with non-standard formats.
+First, ensure that the input video formats are supported by the program and that the videos play correctly. If hardware acceleration is enabled, make sure it matches your GPU. For example, AMD GPUs should use AMD AMF. If it still fails, disable hardware acceleration and try software encoding.
 
 ### What does the synthesized video look like when selecting different frame rates on Bilibili?
 
@@ -73,7 +73,7 @@ You might experience screen flickering during playback due to:
 1. Occasional flickering is normal as video players may not render frames perfectly stable.
 2. Your device might not have enough resources to render frames at the same rate as playback, causing frame misalignment.
 
-Solution: Change devices (~~bushi~~), check the "Compression" option in the program to reduce video bitrate and lighten device load.
+Solution: Change devices (~~bushi~~), enable the "Bitrate" option in the program and lower the output bitrate to reduce the device load.
 
 ### Can future versions add sound to the synthesized video, using video A's sound for the left channel and video B's sound for the right channel?
 
@@ -89,11 +89,12 @@ If you wish to further develop on the source code, you will need:
 
 - Python 3.x
 - pip (Python package manager)
+- FFmpeg (put `ffmpeg.exe` and `ffprobe.exe` under `src/ffmpeg`, or make them available in your system `PATH`)
 
 2. Install libraries:
 
 ```bash
-pip install opencv-python moviepy pywin32
+pip install pywin32
 ```
 
 ## License
